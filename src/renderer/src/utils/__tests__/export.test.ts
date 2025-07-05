@@ -492,7 +492,8 @@ describe('export', () => {
       ])
       ;(markdownToPlainText as any).mockImplementation((str: string) =>
         str
-          .replace(/[#*_-]/g, '')
+          .replace(/[#*_]/g, '')
+          .replace(/^- /gm, '')
           .replace(/\n+/g, '\n')
           .trim()
       )
