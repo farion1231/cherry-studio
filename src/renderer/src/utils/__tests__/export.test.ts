@@ -491,11 +491,7 @@ describe('export', () => {
         { type: MessageBlockType.MAIN_TEXT, content: '# Header\n**Bold** and *italic* text\n- List item' }
       ])
       ;(markdownToPlainText as any).mockImplementation((str: string) =>
-        str
-          .replace(/[#*_]/g, '')
-          .replace(/^- /gm, '')
-          .replace(/\n+/g, '\n')
-          .trim()
+        str.replace(/[#*_]/g, '').replace(/^- /gm, '').replace(/\n+/g, '\n').trim()
       )
 
       const result = messageToPlainText(testMessage)
