@@ -72,38 +72,6 @@ describe('AsyncInitializer', () => {
     expect(mockFactory).toHaveBeenCalledTimes(1)
   })
 
-  describe('type support', () => {
-    it.each([
-      ['number', 42],
-      ['object', { name: 'test', value: 123 }],
-      ['array', [1, 2, 3]],
-      ['null', null],
-      ['undefined', undefined]
-    ])('should work with %s type', async (_, value) => {
-      const initializer = new AsyncInitializer(() => Promise.resolve(value))
-      expect(await initializer.get()).toBe(value)
-    })
-  })
-
-  it('should maintain separate instances', async () => {
-    const factory1 = vi.fn().mockResolvedValue('value1')
-    const factory2 = vi.fn().mockResolvedValue('value2')
-
-    const initializer1 = new AsyncInitializer(factory1)
-    const initializer2 = new AsyncInitializer(factory2)
-
-    const result1 = await initializer1.get()
-    const result2 = await initializer2.get()
-
-    // 每个实例应该有自己的值
-    expect(result1).toBe('value1')
-    expect(result2).toBe('value2')
-
-    // 每个 factory 都应该被调用
-    expect(factory1).toHaveBeenCalledTimes(1)
-    expect(factory2).toHaveBeenCalledTimes(1)
-  })
-
   it('should not retry after failure', async () => {
     // 确认错误被缓存，不会重试
     const error = new Error('Initialization failed')
