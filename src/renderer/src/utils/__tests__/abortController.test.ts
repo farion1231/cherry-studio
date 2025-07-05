@@ -58,7 +58,6 @@ describe('abortController', () => {
 
       expect(abortMap.get('')).toContain(fn)
     })
-
   })
 
   describe('removeAbortController', () => {
@@ -83,7 +82,6 @@ describe('abortController', () => {
       expect(abortMap.get('test-id')).toEqual([fn1])
     })
 
-
     it('should handle empty string id', () => {
       // 测试空字符串 id
       const fn = vi.fn()
@@ -97,7 +95,6 @@ describe('abortController', () => {
       const fn = vi.fn()
       expect(() => removeAbortController('non-existent-id', fn)).not.toThrow()
     })
-
   })
 
   describe('abortCompletion', () => {
