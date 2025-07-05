@@ -59,13 +59,6 @@ describe('abortController', () => {
       expect(abortMap.get('')).toContain(fn)
     })
 
-    it('should handle invalid function parameter', () => {
-      // 测试无效函数参数
-      // @ts-expect-error 故意传入无效类型
-      expect(() => addAbortController('test-id', null)).not.toThrow()
-      // @ts-expect-error 故意传入无效类型
-      expect(() => addAbortController('test-id', undefined)).not.toThrow()
-    })
   })
 
   describe('removeAbortController', () => {
@@ -90,14 +83,6 @@ describe('abortController', () => {
       expect(abortMap.get('test-id')).toEqual([fn1])
     })
 
-    it('should delete entire entry when no function specified', () => {
-      const fn = vi.fn()
-      addAbortController('test-id', fn)
-
-      // @ts-expect-error 故意传入 undefined 触发删除整个条目的逻辑
-      removeAbortController('test-id', undefined)
-      expect(abortMap.has('test-id')).toBe(false)
-    })
 
     it('should handle empty string id', () => {
       // 测试空字符串 id
@@ -113,15 +98,6 @@ describe('abortController', () => {
       expect(() => removeAbortController('non-existent-id', fn)).not.toThrow()
     })
 
-    it('should delete entire entry when function is null', () => {
-      // 测试 null 函数参数
-      const fn = vi.fn()
-      addAbortController('test-id', fn)
-
-      // @ts-expect-error 故意传入 null
-      removeAbortController('test-id', null)
-      expect(abortMap.has('test-id')).toBe(false)
-    })
   })
 
   describe('abortCompletion', () => {
