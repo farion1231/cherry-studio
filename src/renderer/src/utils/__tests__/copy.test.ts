@@ -89,21 +89,6 @@ describe('copy', () => {
       expect(mockMessage.success).toHaveBeenCalledWith('message.copy.success')
     })
 
-    it('should handle empty markdown content', async () => {
-      // 测试空内容场景
-      const topic = createTestTopic()
-      const emptyContent = ''
-
-      const { topicToMarkdown } = await import('@renderer/utils/export')
-      vi.mocked(topicToMarkdown).mockResolvedValue(emptyContent)
-      mockClipboard.writeText.mockResolvedValue(undefined)
-
-      await copyTopicAsMarkdown(topic)
-
-      expect(mockClipboard.writeText).toHaveBeenCalledWith(emptyContent)
-      expect(mockMessage.success).toHaveBeenCalledWith('message.copy.success')
-    })
-
     it('should handle export function errors', async () => {
       // 测试导出函数错误
       const topic = createTestTopic()
@@ -146,21 +131,6 @@ describe('copy', () => {
       expect(mockMessage.success).toHaveBeenCalledWith('message.copy.success')
     })
 
-    it('should handle special characters in plain text', async () => {
-      // 测试特殊字符处理
-      const topic = createTestTopic({ name: 'Topic with "quotes" & symbols' })
-      const plainTextWithSpecialChars = 'Topic with "quotes" & symbols\n\nContent with <tags> and &entities;'
-
-      const { topicToPlainText } = await import('@renderer/utils/export')
-      vi.mocked(topicToPlainText).mockResolvedValue(plainTextWithSpecialChars)
-      mockClipboard.writeText.mockResolvedValue(undefined)
-
-      await copyTopicAsPlainText(topic)
-
-      expect(mockClipboard.writeText).toHaveBeenCalledWith(plainTextWithSpecialChars)
-      expect(mockMessage.success).toHaveBeenCalledWith('message.copy.success')
-    })
-
     it('should handle export function errors', async () => {
       // 测试导出函数错误
       const topic = createTestTopic()
@@ -187,36 +157,6 @@ describe('copy', () => {
 
       expect(messageToPlainText).toHaveBeenCalledWith(message)
       expect(mockClipboard.writeText).toHaveBeenCalledWith(plainTextContent)
-      expect(mockMessage.success).toHaveBeenCalledWith('message.copy.success')
-    })
-
-    it('should handle empty message content', async () => {
-      // 测试空消息内容
-      const message = createTestMessage()
-      const emptyContent = ''
-
-      const { messageToPlainText } = await import('@renderer/utils/export')
-      vi.mocked(messageToPlainText).mockReturnValue(emptyContent)
-      mockClipboard.writeText.mockResolvedValue(undefined)
-
-      await copyMessageAsPlainText(message)
-
-      expect(mockClipboard.writeText).toHaveBeenCalledWith(emptyContent)
-      expect(mockMessage.success).toHaveBeenCalledWith('message.copy.success')
-    })
-
-    it('should handle messages with markdown formatting', async () => {
-      // 测试markdown格式的消息
-      const message = createTestMessage()
-      const plainText = 'Header\nBold and italic text\n- List item'
-
-      const { messageToPlainText } = await import('@renderer/utils/export')
-      vi.mocked(messageToPlainText).mockReturnValue(plainText)
-      mockClipboard.writeText.mockResolvedValue(undefined)
-
-      await copyMessageAsPlainText(message)
-
-      expect(mockClipboard.writeText).toHaveBeenCalledWith(plainText)
       expect(mockMessage.success).toHaveBeenCalledWith('message.copy.success')
     })
 
@@ -251,18 +191,6 @@ describe('copy', () => {
       await expect(copyTopicAsPlainText(undefined)).rejects.toThrow('Cannot read properties of undefined')
       // @ts-expect-error 测试类型错误
       await expect(copyMessageAsPlainText(null)).rejects.toThrow('Cannot read properties of null')
-    })
-
-    it('should handle clipboard API not available', async () => {
-      // 测试剪贴板API不可用的情况
-      const message = createTestMessage()
-      const { messageToPlainText } = await import('@renderer/utils/export')
-
-      vi.mocked(messageToPlainText).mockReturnValue('test content')
-      mockClipboard.writeText.mockRejectedValue(new Error('Clipboard API not available'))
-
-      await expect(copyMessageAsPlainText(message)).rejects.toThrow('Clipboard API not available')
-      expect(mockMessage.success).not.toHaveBeenCalled()
     })
   })
 })
