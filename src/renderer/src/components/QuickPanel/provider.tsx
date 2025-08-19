@@ -58,6 +58,18 @@ export const QuickPanelProvider: React.FC<React.PropsWithChildren> = ({ children
       setIsVisible(false)
       onClose?.({ symbol, action, triggerInfo, searchText, item: {} as QuickPanelListItem, multiple: false })
 
+      // 发送全局事件，便于外部组件（如 Inputbar）
+      // 无需修改所有 open() 调用点即可感知关闭原因（如 'no-matches'）
+      try {
+        window?.dispatchEvent(
+          new CustomEvent('quickpanel:closed', {
+            detail: { action, symbol, triggerInfo, searchText }
+          })
+        )
+      } catch (_) {
+        // 忽略：某些环境下 window 可能不存在
+      }
+
       clearTimer.current = setTimeout(() => {
         setList([])
         setOnClose(undefined)

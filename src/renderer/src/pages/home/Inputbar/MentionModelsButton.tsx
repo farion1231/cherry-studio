@@ -18,6 +18,7 @@ import styled from 'styled-components'
 
 export interface MentionModelsButtonRef {
   openQuickPanel: (triggerInfo?: { type: 'input' | 'button'; position?: number; originalText?: string }) => void
+  hasMatchFast: (query: string) => boolean
 }
 
 interface Props {
@@ -137,6 +138,33 @@ const MentionModelsButton: FC<Props> = ({
     return items
   }, [pinnedModels, providers, t, couldMentionNotVisionModel, mentionedModels, onMentionModel, navigate])
 
+  // 构建一个轻量的“小写索引”，用于快速判断是否存在命中；
+  // 仅做小写 includes，且限制索引长度以控制性能。
+  const fastIndex = useMemo(() => {
+    const texts: string[] = []
+    for (const item of modelItems) {
+      const text =
+        (typeof item.filterText === 'string' && item.filterText) || (typeof item.label === 'string' ? item.label : '')
+      if (text) texts.push(text.toLowerCase())
+      if (texts.length > 400) break // 限制规模，避免影响性能
+    }
+    return texts
+  }, [modelItems])
+
+  const hasMatchFast = useCallback(
+    (query: string) => {
+      const q = (query || '').toLowerCase()
+      if (!q) return false
+      // 简单子串判断：不做拼音/模糊匹配；
+      // 命中即提前返回。
+      for (let i = 0; i < fastIndex.length; i++) {
+        if (fastIndex[i].includes(q)) return true
+      }
+      return false
+    },
+    [fastIndex]
+  )
+
   const openQuickPanel = useCallback(
     (triggerInfo?: { type: 'input' | 'button'; position?: number; originalText?: string }) => {
       // 重置模型动作标记
@@ -214,7 +242,8 @@ const MentionModelsButton: FC<Props> = ({
   }, [files, quickPanel])
 
   useImperativeHandle(ref, () => ({
-    openQuickPanel
+    openQuickPanel,
+    hasMatchFast
   }))
 
   return (

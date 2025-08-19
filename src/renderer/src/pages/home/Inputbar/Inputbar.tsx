@@ -348,6 +348,27 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic, topic }) =
     })
   }, [knowledgeBases, openKnowledgeFileList, quickPanel, t, inputbarToolsRef])
 
+  const lastCloseContextRef = useRef<{ action?: string; symbol?: string; position?: number; ts: number } | null>(null)
+  const backspaceFlagRef = useRef(false)
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail: any = (e as CustomEvent).detail || {}
+      // 仅记录因“无匹配”关闭的情况
+      if (detail?.action === 'no-matches') {
+        const pos = detail?.triggerInfo?.position
+        lastCloseContextRef.current = {
+          action: 'no-matches',
+          symbol: detail?.symbol,
+          position: typeof pos === 'number' ? pos : undefined,
+          ts: Date.now()
+        }
+      }
+    }
+    window.addEventListener('quickpanel:closed', handler as any)
+    return () => window.removeEventListener('quickpanel:closed', handler as any)
+  }, [])
+
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // 按下Tab键，自动选中${xxx}
     if (event.key === 'Tab' && inputFocus) {
@@ -438,6 +459,10 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic, topic }) =
       }
     }
 
+    if (event.key === 'Backspace') {
+      backspaceFlagRef.current = true
+    }
+
     if (enableBackspaceDeleteModel && event.key === 'Backspace' && text.trim() === '' && mentionedModels.length > 0) {
       setMentionedModels((prev) => prev.slice(0, -1))
       return event.preventDefault()
@@ -502,6 +527,73 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic, topic }) =
 
   const onInput = () => !expended && resizeTextArea()
 
+  // 针对 Backspace 修正的“重开面板”防抖逻辑
+  const debouncedReopenRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const tryReopenAfterBackspace = useCallback(
+    (newText: string) => {
+      if (debouncedReopenRef.current) clearTimeout(debouncedReopenRef.current)
+      debouncedReopenRef.current = setTimeout(() => {
+        backspaceFlagRef.current = false
+        // 仅在最近一次因“无匹配”关闭后的短时间窗口内考虑重开
+        const ctx = lastCloseContextRef.current
+        if (!ctx || ctx.action !== 'no-matches') return
+        if (Date.now() - ctx.ts > 2000) return
+        if (quickPanel.isVisible) return
+
+        const textArea = textareaRef.current?.resizableTextArea?.textArea
+        const cursorPosition = textArea?.selectionStart ?? 0
+        // 在光标前查找最近的触发符号
+        const slice = newText.slice(0, cursorPosition)
+        const slashIdx = slice.lastIndexOf('/')
+        const atIdx = slice.lastIndexOf('@')
+        const symbolIdx = Math.max(slashIdx, atIdx)
+        if (symbolIdx < 0) return
+        const symbol = newText[symbolIdx]
+        if (ctx.symbol && ctx.symbol !== symbol) return
+        // 确保触发符与光标之间没有换行
+        if (slice.slice(symbolIdx).includes('\n')) return
+
+        const query = newText.slice(symbolIdx + 1, cursorPosition)
+
+        if (symbol === '/') {
+          // 为避免每次 Backspace 都无意义重开，仅在有命中时重开
+          if (inputbarToolsRef.current?.hasQuickMenuMatchFast(query, newText)) {
+            const quickPanelMenu =
+              inputbarToolsRef.current?.getQuickPanelMenu({
+                t,
+                files,
+                couldAddImageFile,
+                text: newText,
+                openSelectFileMenu,
+                translate
+              }) || []
+            quickPanel.open({
+              title: t('settings.quickPanel.title'),
+              list: quickPanelMenu,
+              symbol: '/',
+              defaultIndex: 0,
+              triggerInfo: { type: 'input', position: symbolIdx, originalText: newText }
+            })
+          }
+          return
+        }
+
+        if (symbol === '@') {
+          // 需要最小长度门槛并通过快速存在性判断
+          if ((query || '').length < 2) return
+          if (!inputbarToolsRef.current?.hasMentionMatchFast(query)) return
+          inputbarToolsRef.current?.openMentionModelsPanel({
+            type: 'input',
+            position: symbolIdx,
+            originalText: newText
+          })
+        }
+      }, 160)
+    },
+    [quickPanel, t, files, couldAddImageFile, openSelectFileMenu, translate]
+  )
+
   const onChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const newText = e.target.value
@@ -525,7 +617,8 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic, topic }) =
         quickPanel.open({
           title: t('settings.quickPanel.title'),
           list: quickPanelMenu,
-          symbol: '/'
+          symbol: '/',
+          triggerInfo: { type: 'input', position: cursorPosition - 1, originalText: newText }
         })
       }
 
@@ -536,8 +629,22 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic, topic }) =
           originalText: newText
         })
       }
+
+      // Backspace 触发的重开尝试（防抖）
+      if (backspaceFlagRef.current) {
+        tryReopenAfterBackspace(newText)
+      }
     },
-    [enableQuickPanelTriggers, quickPanel, t, files, couldAddImageFile, openSelectFileMenu, translate]
+    [
+      enableQuickPanelTriggers,
+      quickPanel,
+      t,
+      files,
+      couldAddImageFile,
+      openSelectFileMenu,
+      translate,
+      tryReopenAfterBackspace
+    ]
   )
 
   const onPaste = useCallback(

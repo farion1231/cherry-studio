@@ -27,6 +27,7 @@ import { Dispatch, ReactNode, SetStateAction, useCallback, useImperativeHandle, 
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import * as tinyPinyin from 'tiny-pinyin'
 
 import AttachmentButton, { AttachmentButtonRef } from './AttachmentButton'
 import GenerateImageButton from './GenerateImageButton'
@@ -50,6 +51,8 @@ export interface InputbarToolsRef {
     translate: () => void
   }) => QuickPanelListItem[]
   openMentionModelsPanel: (triggerInfo?: { type: 'input' | 'button'; position?: number; originalText?: string }) => void
+  hasMentionMatchFast: (query: string) => boolean
+  hasQuickMenuMatchFast: (query: string, text: string) => boolean
   openAttachmentQuickPanel: () => void
 }
 
@@ -158,108 +161,159 @@ const InputbarTools = ({
     [dispatch, toolOrder.hidden, toolOrder.visible]
   )
 
-  const getQuickPanelMenuImpl = (params: {
-    t: (key: string, options?: any) => string
-    files: FileType[]
-    couldAddImageFile: boolean
-    text: string
-    openSelectFileMenu: () => void
-    translate: () => void
-  }): QuickPanelListItem[] => {
-    const { t, files, couldAddImageFile, text, openSelectFileMenu, translate } = params
+  const getQuickPanelMenuImpl = useCallback(
+    (params: {
+      t: (key: string, options?: any) => string
+      files: FileType[]
+      couldAddImageFile: boolean
+      text: string
+      openSelectFileMenu: () => void
+      translate: () => void
+    }): QuickPanelListItem[] => {
+      const { t, files, couldAddImageFile, text, openSelectFileMenu, translate } = params
 
-    return [
-      {
-        label: t('settings.quickPhrase.title'),
-        description: '',
-        icon: <Zap />,
-        isMenu: true,
-        action: () => {
-          quickPhrasesButtonRef.current?.openQuickPanel()
+      return [
+        {
+          label: t('settings.quickPhrase.title'),
+          description: '',
+          icon: <Zap />,
+          isMenu: true,
+          action: () => {
+            quickPhrasesButtonRef.current?.openQuickPanel()
+          }
+        },
+        {
+          label: t('agents.edit.model.select.title'),
+          description: '',
+          icon: <AtSign />,
+          isMenu: true,
+          action: () => {
+            mentionModelsButtonRef.current?.openQuickPanel()
+          }
+        },
+        {
+          label: t('chat.input.knowledge_base'),
+          description: '',
+          icon: <FileSearch />,
+          isMenu: true,
+          disabled: files.length > 0,
+          action: () => {
+            knowledgeBaseButtonRef.current?.openQuickPanel()
+          }
+        },
+        {
+          label: t('settings.mcp.title'),
+          description: t('settings.mcp.not_support'),
+          icon: <LucideSquareTerminal />,
+          isMenu: true,
+          action: () => {
+            mcpToolsButtonRef.current?.openQuickPanel()
+          }
+        },
+        {
+          label: `MCP ${t('settings.mcp.tabs.prompts')}`,
+          description: '',
+          icon: <LucideSquareTerminal />,
+          isMenu: true,
+          action: () => {
+            mcpToolsButtonRef.current?.openPromptList()
+          }
+        },
+        {
+          label: `MCP ${t('settings.mcp.tabs.resources')}`,
+          description: '',
+          icon: <LucideSquareTerminal />,
+          isMenu: true,
+          action: () => {
+            mcpToolsButtonRef.current?.openResourcesList()
+          }
+        },
+        {
+          label: t('chat.input.web_search.label'),
+          description: '',
+          icon: <Globe />,
+          isMenu: true,
+          action: () => {
+            webSearchButtonRef.current?.openQuickPanel()
+          }
+        },
+        {
+          label: t('chat.input.url_context'),
+          description: '',
+          icon: <Link />,
+          isMenu: true,
+          action: () => {
+            urlContextButtonRef.current?.openQuickPanel()
+          }
+        },
+        {
+          label: couldAddImageFile ? t('chat.input.upload.label') : t('chat.input.upload.document'),
+          description: '',
+          icon: <Paperclip />,
+          isMenu: true,
+          action: openSelectFileMenu
+        },
+        {
+          label: t('translate.title'),
+          description: t('translate.menu.description'),
+          icon: <Languages />,
+          action: () => {
+            if (!text) return
+            translate()
+          }
         }
-      },
-      {
-        label: t('agents.edit.model.select.title'),
-        description: '',
-        icon: <AtSign />,
-        isMenu: true,
-        action: () => {
-          mentionModelsButtonRef.current?.openQuickPanel()
-        }
-      },
-      {
-        label: t('chat.input.knowledge_base'),
-        description: '',
-        icon: <FileSearch />,
-        isMenu: true,
-        disabled: files.length > 0,
-        action: () => {
-          knowledgeBaseButtonRef.current?.openQuickPanel()
-        }
-      },
-      {
-        label: t('settings.mcp.title'),
-        description: t('settings.mcp.not_support'),
-        icon: <LucideSquareTerminal />,
-        isMenu: true,
-        action: () => {
-          mcpToolsButtonRef.current?.openQuickPanel()
-        }
-      },
-      {
-        label: `MCP ${t('settings.mcp.tabs.prompts')}`,
-        description: '',
-        icon: <LucideSquareTerminal />,
-        isMenu: true,
-        action: () => {
-          mcpToolsButtonRef.current?.openPromptList()
-        }
-      },
-      {
-        label: `MCP ${t('settings.mcp.tabs.resources')}`,
-        description: '',
-        icon: <LucideSquareTerminal />,
-        isMenu: true,
-        action: () => {
-          mcpToolsButtonRef.current?.openResourcesList()
-        }
-      },
-      {
-        label: t('chat.input.web_search.label'),
-        description: '',
-        icon: <Globe />,
-        isMenu: true,
-        action: () => {
-          webSearchButtonRef.current?.openQuickPanel()
-        }
-      },
-      {
-        label: t('chat.input.url_context'),
-        description: '',
-        icon: <Link />,
-        isMenu: true,
-        action: () => {
-          urlContextButtonRef.current?.openQuickPanel()
-        }
-      },
-      {
-        label: couldAddImageFile ? t('chat.input.upload.label') : t('chat.input.upload.document'),
-        description: '',
-        icon: <Paperclip />,
-        isMenu: true,
-        action: openSelectFileMenu
-      },
-      {
-        label: t('translate.title'),
-        description: t('translate.menu.description'),
-        icon: <Languages />,
-        action: () => {
-          if (!text) return
-          translate()
+      ]
+    },
+    // 此函数只使用入参 'params' 与稳定的 ref，不捕获外部可变值，故依赖为空
+    []
+  )
+
+  const hasQuickMenuMatchFastImpl = useCallback(
+    (query: string, text: string) => {
+      const q = (query || '').toLowerCase().trim()
+      // 空查询等价于有匹配：允许直接重开
+      if (q.length === 0) return true
+
+      // 仅用于轻量匹配，action 不需要真实函数，传入空函数占位即可
+      const items = getQuickPanelMenuImpl({
+        t,
+        files,
+        couldAddImageFile,
+        text,
+        openSelectFileMenu: () => {},
+        translate: () => {}
+      })
+
+      const hasChinese = /[\u4e00-\u9fa5]/.test(q)
+
+      for (const item of items) {
+        let target = ''
+        if (typeof item.filterText === 'string') target += item.filterText
+        if (typeof item.label === 'string') target += item.label
+        if (typeof item.description === 'string') target += item.description
+        const lower = target.toLowerCase()
+
+        if (hasChinese) {
+          if (lower.includes(q)) return true
+        } else {
+          // 非中文查询：优先用拼音匹配中文候选，否则走普通包含
+          if (/[\u4e00-\u9fa5]/.test(target) && tinyPinyin.isSupported()) {
+            try {
+              const py = tinyPinyin.convertToPinyin(target, '', true).toLowerCase()
+              if (py.includes(q)) return true
+            } catch (_) {
+              // 忽略拼音失败，继续走普通包含
+            }
+          }
+          if (lower.includes(q)) return true
         }
       }
-    ]
-  }
+      return false
+    },
+    // 仅在相关输入发生变化时重建；忽略对 Hook 依赖的警告
+
+    [t, files, couldAddImageFile, getQuickPanelMenuImpl]
+  )
 
   const handleDragEnd = (result: DropResult) => {
     const { source, destination } = result
@@ -293,6 +347,8 @@ const InputbarTools = ({
   useImperativeHandle(ref, () => ({
     getQuickPanelMenu: getQuickPanelMenuImpl,
     openMentionModelsPanel: (triggerInfo) => mentionModelsButtonRef.current?.openQuickPanel(triggerInfo),
+    hasMentionMatchFast: (query: string) => !!mentionModelsButtonRef.current?.hasMatchFast(query),
+    hasQuickMenuMatchFast: (query: string, text: string) => hasQuickMenuMatchFastImpl(query, text),
     openAttachmentQuickPanel: () => attachmentButtonRef.current?.openQuickPanel()
   }))
 
